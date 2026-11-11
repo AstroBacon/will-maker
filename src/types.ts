@@ -72,6 +72,31 @@ export interface Docs {
   will: boolean;
   assets: boolean;
   directive: boolean;
+  poa: boolean;
+}
+
+/** The 13 subjects of general authority in the Georgia statutory form (O.C.G.A. § 10-6B-70). */
+export type PoaSubject =
+  | 'realProperty' | 'tangible' | 'stocks' | 'commodities' | 'banks' | 'business' | 'insurance'
+  | 'estates' | 'claims' | 'maintenance' | 'benefits' | 'retirement' | 'taxes';
+
+/** Powers that can shrink the estate or change who inherits; off unless initialed. */
+export type PoaSpecific =
+  | 'trust' | 'gift' | 'survivorship' | 'beneficiary' | 'delegate' | 'waiveAnnuity' | 'electronic' | 'fiduciary' | 'renounce';
+
+/** Financial power of attorney choices. */
+export interface Poa {
+  agent: HealthPerson;
+  successor1: HealthPerson;
+  successor2: HealthPerson;
+  allSubjects: boolean;
+  subjects: Record<PoaSubject, boolean>;
+  specific: Record<PoaSpecific, boolean>;
+  specialInstructions: string;
+  conservator: '' | 'agent' | 'other';
+  conservatorPerson: HealthPerson;
+  /** Oregon only: effective now, or only once financially incapable (ORS 127.005(2)). */
+  effective: 'now' | 'incapacity';
 }
 
 /** Someone named in the advance directive (health care agent/representative, guardian, etc.). */
@@ -159,6 +184,9 @@ export interface WillData {
   /** The will-maker's advance directive, and (couples mode) the spouse's. */
   directive: Directive;
   spouseDirective: Directive;
+  /** The will-maker's financial power of attorney, and (couples mode) the spouse's. */
+  poa: Poa;
+  spousePoa: Poa;
   /** Who gets "everything else" first. */
   primary: ResiduaryTier;
   /** Backup group if nobody in the primary group (or their descendants, if applicable) survives. */
@@ -225,6 +253,24 @@ export function emptyDirective(): Directive {
   };
 }
 
+export function emptyPoa(): Poa {
+  return {
+    agent: emptyHealthPerson(),
+    successor1: emptyHealthPerson(),
+    successor2: emptyHealthPerson(),
+    allSubjects: false,
+    subjects: {
+      realProperty: false, tangible: false, stocks: false, commodities: false, banks: false, business: false, insurance: false,
+      estates: false, claims: false, maintenance: false, benefits: false, retirement: false, taxes: false,
+    },
+    specific: { trust: false, gift: false, survivorship: false, beneficiary: false, delegate: false, waiveAnnuity: false, electronic: false, fiduciary: false, renounce: false },
+    specialInstructions: '',
+    conservator: '',
+    conservatorPerson: emptyHealthPerson(),
+    effective: 'now',
+  };
+}
+
 export function emptyWill(): WillData {
   return {
     state: '',
@@ -243,9 +289,11 @@ export function emptyWill(): WillData {
     spouseGifts: [],
     assets: [],
     info: { documents: '', contacts: '', digital: '', wishes: '' },
-    docs: { will: true, assets: false, directive: false },
+    docs: { will: true, assets: false, directive: false, poa: false },
     directive: emptyDirective(),
     spouseDirective: emptyDirective(),
+    poa: emptyPoa(),
+    spousePoa: emptyPoa(),
     primary: emptyTier(),
     contingent: emptyTier(),
   };

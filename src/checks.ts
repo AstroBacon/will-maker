@@ -3,7 +3,7 @@ import { minorChildren, omittedChildren } from './generate';
 import { RULES } from './states';
 import { firstName, sameName, type Asset, type ResiduaryTier, type WillData } from './types';
 
-export type StepId = 'start' | 'you' | 'children' | 'executor' | 'guardian' | 'gifts' | 'residue' | 'assets' | 'directive' | 'review';
+export type StepId = 'start' | 'you' | 'children' | 'executor' | 'guardian' | 'gifts' | 'residue' | 'assets' | 'directive' | 'poa' | 'review';
 
 export interface Issue {
   level: 'error' | 'warning' | 'info';

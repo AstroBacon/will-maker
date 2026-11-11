@@ -137,7 +137,7 @@ button { font: inherit; cursor: pointer; }
 .help summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 .help > div { padding: 8px 0 0; color: var(--muted); }
 
-.disclaimer { font-size: 0.88rem; color: var(--muted); border-left: 3px solid var(--border); padding-left: 12px; }
+.disclaimer { font-size: 0.95rem; color: var(--text); border-left: 3px solid var(--accent); padding-left: 12px; }
 
 .nav-buttons { display: flex; justify-content: space-between; margin-top: 28px; }
 .nav-buttons .primary:only-child { margin-left: auto; }
@@ -285,6 +285,7 @@ textarea:focus { outline: 3px solid var(--accent); outline-offset: 1px; }
   .directive-document { border: 0; box-shadow: none; padding: 0; page: directive; }
   .directive-document h2, .directive-document h3 { break-after: avoid; }
   .form-person, .sig-pair, .witness-block { break-inside: avoid; }
+  .page-break-before { break-before: page; }
   .keep-together, .execution, .jurat { break-inside: avoid; }
   .sig-line { margin-top: 24pt; }
   .affidavit { break-before: page; border-top: 0; margin-top: 0; padding-top: 0; }
@@ -296,6 +297,8 @@ textarea:focus { outline: 3px solid var(--accent); outline-offset: 1px; }
   body[data-print='will-b'] .print-will-b,
   body[data-print='dir-a'] .print-dir-a,
   body[data-print='dir-b'] .print-dir-b,
+  body[data-print='poa-a'] .print-poa-a,
+  body[data-print='poa-b'] .print-poa-b,
   body[data-print='assets'] .print-assets,
   body[data-print='checklist'] .checklist { display: block !important; }
   .checklist { border: 0; padding: 0; }

@@ -22,6 +22,7 @@ function peopleSuggestions(d: WillData, includeSpouse: boolean): PersonSuggestio
 const DOC_CHOICES: { key: keyof Docs; label: string; hint: string }[] = [
   { key: 'will', label: 'Last will and testament', hint: 'Who gets your property, who handles your estate, and who would raise young children.' },
   { key: 'directive', label: 'Medical directive (advance directive for health care)', hint: 'Who makes medical decisions if you can’t, and your wishes about life support. Uses your state’s official form.' },
+  { key: 'poa', label: 'Financial power of attorney', hint: 'Who handles your money and property if you can’t, while you’re alive.' },
   { key: 'assets', label: 'Asset list for your executor', hint: 'A practical list of accounts, property, and contacts. Not a legal document.' },
 ];
 
@@ -64,9 +65,11 @@ export function StartStep({ data, set }: StepProps) {
         {!Object.values(data.docs).some(Boolean) && <p className="field-hint bad">Pick at least one.</p>}
       </fieldset>
       <p className="disclaimer">
-        This tool fills in legal forms based on your answers. It is not a lawyer and doesn’t give legal advice. Have a lawyer
-        look over your documents, especially if your situation is complicated: a business, property in another state, a blended
-        family, or a family member with special needs.
+        <strong>
+          This tool fills in legal forms based on your answers. It is not a lawyer and doesn’t give legal advice. Have a lawyer
+          look over your documents, especially if your situation is complicated: a business, property in another state, a
+          blended family, or a family member with special needs.
+        </strong>
       </p>
     </>
   );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 
 import { AssetDocument, AssetsStep, hasAssetList } from './assets';
 import { checkAssets, checkBasics, checkWill, type Issue, type StepId } from './checks';
 import { checkDirective, DIRECTIVE_SIGNING, DirectiveDocument, DirectiveStep, initialsGuide } from './directive';
+import { checkPoa, POA_NOTES, POA_SIGNING, PoaDocument, poaInitials, PoaStep } from './poa';
 import { RULES } from './states';
 import { ChildrenStep, ExecutorStep, GiftsStep, GuardianStep, ResidueStep, StartStep, YouStep, type StepProps } from './steps';
 import { downloadDraft, mirrorForSpouse, purgeStoredDraft, readDraftFile } from './storage';
@@ -20,17 +21,18 @@ const forWill = (d: WillData) => d.docs.will;
 const STEPS: StepDef[] = [
   { id: 'start', label: 'Start', Component: StartStep },
   { id: 'you', label: 'About you', Component: YouStep },
-  { id: 'children', label: 'Children', Component: ChildrenStep, show: (d) => d.docs.will || d.docs.assets || d.docs.directive },
+  { id: 'children', label: 'Children', Component: ChildrenStep, show: (d) => d.docs.will || d.docs.assets || d.docs.directive || d.docs.poa },
   { id: 'executor', label: 'Executor', Component: ExecutorStep, show: forWill },
   { id: 'guardian', label: 'Guardian', Component: GuardianStep, show: forWill },
   { id: 'gifts', label: 'Specific gifts', Component: GiftsStep, show: forWill },
   { id: 'residue', label: 'Everything else', Component: ResidueStep, show: forWill },
   { id: 'directive', label: 'Medical directive', Component: DirectiveStep, show: (d) => d.docs.directive },
+  { id: 'poa', label: 'Power of attorney', Component: PoaStep, show: (d) => d.docs.poa },
   { id: 'assets', label: 'Asset list', Component: AssetsStep, show: (d) => d.docs.assets },
   { id: 'review', label: 'Review & print' },
 ];
 
-type PrintPart = 'will-a' | 'will-b' | 'dir-a' | 'dir-b' | 'checklist' | 'assets';
+type PrintPart = 'will-a' | 'will-b' | 'dir-a' | 'dir-b' | 'poa-a' | 'poa-b' | 'checklist' | 'assets';
 
 function printPart(part: PrintPart) {
   document.body.dataset.print = part;
@@ -51,8 +53,14 @@ function allIssues(d: WillData) {
         ...(couple ? checkDirective(d.state, d.spouseDirective, `${firstName(d.spouseName)}’s directive`) : []),
       ]
     : [];
+  const poaIssues = d.docs.poa
+    ? [
+        ...checkPoa(d.state, d.poa, couple ? `${firstName(d.name, 'Your')}’s power of attorney` : 'Your power of attorney', d.name),
+        ...(couple ? checkPoa(d.state, d.spousePoa, `${firstName(d.spouseName)}’s power of attorney`, d.spouseName) : []),
+      ]
+    : [];
   const assetIssues = d.docs.assets ? checkAssets(d) : [];
-  return { basics, willA, willB, dirIssues, assetIssues, all: [...basics, ...willA, ...willB, ...dirIssues, ...assetIssues] };
+  return { basics, willA, willB, dirIssues, poaIssues, assetIssues, all: [...basics, ...willA, ...willB, ...dirIssues, ...poaIssues, ...assetIssues] };
 }
 
 function IssueList({ issues, goTo, title }: { issues: Issue[]; goTo: (s: StepId) => void; title?: string }) {
@@ -137,7 +145,7 @@ function DocSection({
 function ReviewStep({ data, setData, goTo }: { data: WillData; setData: (d: WillData) => void; goTo: (s: StepId) => void }) {
   const couple = isCouple(data);
   const spouse = couple ? mirrorForSpouse(data) : null;
-  const { basics, willA, willB, dirIssues, assetIssues, all } = allIssues(data);
+  const { basics, willA, willB, dirIssues, poaIssues, assetIssues, all } = allIssues(data);
   const errors = all.filter((i) => i.level === 'error');
   const rules = RULES[data.state || 'GA'];
   const fileRef = useRef<HTMLInputElement>(null);
@@ -158,6 +166,7 @@ function ReviewStep({ data, setData, goTo }: { data: WillData; setData: (d: Will
       <IssueList issues={willA} goTo={goTo} title={data.docs.will ? (couple ? `${nameA}’s will` : 'Your will') : undefined} />
       <IssueList issues={willB} goTo={goTo} title={`${nameB}’s will`} />
       <IssueList issues={dirIssues} goTo={goTo} title="Medical directive" />
+      <IssueList issues={poaIssues} goTo={goTo} title="Financial power of attorney" />
       <IssueList issues={assetIssues} goTo={goTo} title="Accounts with a named beneficiary" />
       {data.docs.will && (
         <ul className="issues">
@@ -243,6 +252,36 @@ function ReviewStep({ data, setData, goTo }: { data: WillData; setData: (d: Will
             })}
           </>
         )}
+        {data.docs.poa && (
+          <>
+            <h3>How to sign your financial power of attorney in {rules.name}</h3>
+            <ol>
+              {POA_SIGNING[st].map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ol>
+            {[
+              { who: couple ? nameA : 'You', poa: data.poa },
+              ...(couple ? [{ who: nameB, poa: data.spousePoa }] : []),
+            ].map(({ who, poa }) => {
+              const items = poaInitials(st, poa);
+              return (
+                <div key={who} className="initials-guide">
+                  <h4>{who === 'You' ? 'Initial these powers' : `${who}: initial these powers`}</h4>
+                  {items.length ? (
+                    <ul>
+                      {items.map((t) => (
+                        <li key={t}>☐ {t}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="field-hint">No powers picked yet.</p>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
       </section>
 
       {data.docs.will && (
@@ -266,6 +305,20 @@ function ReviewStep({ data, setData, goTo }: { data: WillData; setData: (d: Will
                 </dd>
               </div>
             )}
+          </dl>
+        </details>
+      )}
+
+      {data.docs.poa && (
+        <details className="card no-print lawyer-notes">
+          <summary>Notes for your lawyer: power of attorney ({rules.name})</summary>
+          <dl>
+            {POA_NOTES[st].map((n) => (
+              <div key={n.topic}>
+                <dt>{n.topic}</dt>
+                <dd>{n.note}</dd>
+              </div>
+            ))}
           </dl>
         </details>
       )}
@@ -294,6 +347,19 @@ function ReviewStep({ data, setData, goTo }: { data: WillData; setData: (d: Will
           className=""
           renderA={() => <DirectiveDocument state={data.state} name={data.name} dir={data.directive} />}
           renderB={() => <DirectiveDocument state={data.state} name={data.spouseName} dir={data.spouseDirective} />}
+        />
+      )}
+      {data.docs.poa && (
+        <DocSection
+          title="Power of attorney"
+          couple={couple}
+          nameA={nameA}
+          nameB={nameB}
+          partA="poa-a"
+          partB="poa-b"
+          className=""
+          renderA={() => <PoaDocument data={data} name={data.name} poa={data.poa} />}
+          renderB={() => <PoaDocument data={data} name={data.spouseName} poa={data.spousePoa} />}
         />
       )}
       {assets && (

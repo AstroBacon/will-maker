@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AssetDocument } from './assets';
 import { checkDirective, DirectiveDocument, initialsGuide } from './directive';
+import { checkPoa, PoaDocument, poaInitials } from './poa';
 import { cleanCity, COUNTIES, matchCounty } from './counties';
 import { checkAssets, checkBasics, checkWill } from './checks';
 import { BLANK, generateWill } from './generate';
@@ -274,7 +275,7 @@ describe('city and county', () => {
 
 describe('medical directive', () => {
   const withDirective = (state: 'GA' | 'OR') => {
-    const d = { ...parents(state), docs: { will: false, assets: false, directive: true } };
+    const d = { ...parents(state), docs: { will: false, assets: false, directive: true, poa: false } };
     d.directive = { ...d.directive, dob: '12/23/1978', agent: { name: 'Linda Ann Smith', relationship: 'spouse', address: '', phone: '770-555-0100' }, alt1: { name: 'Amy Smith', relationship: 'child', address: '', phone: '' } };
     return d;
   };
@@ -359,8 +360,75 @@ describe('medical directive', () => {
     const old = JSON.parse(JSON.stringify(parents())) as Record<string, unknown>;
     delete old.docs; delete old.directive; delete old.spouseDirective;
     const d = normalize(old);
-    expect(d.docs).toEqual({ will: true, assets: false, directive: false });
+    expect(d.docs).toEqual({ will: true, assets: false, directive: false, poa: false });
     expect(d.directive.ga.preference).toBe('');
     expect(d.spouseDirective.or.abilities.know).toBe(false);
+  });
+});
+
+describe('financial power of attorney', () => {
+  const withPoa = (state: 'GA' | 'OR') => {
+    const d = { ...parents(state), docs: { will: false, assets: false, directive: false, poa: true } };
+    d.poa = { ...d.poa, agent: { name: 'Linda Ann Smith', relationship: 'spouse', address: '12 Oak St', phone: '' }, successor1: { name: 'Amy Smith', relationship: 'child', address: '', phone: '' } };
+    return d;
+  };
+
+  it('prints the Georgia statutory form (phrases verified against O.C.G.A. § 10-6B-70) with nothing pre-marked', () => {
+    const d = withPoa('GA');
+    d.poa = { ...d.poa, allSubjects: true, specific: { ...d.poa.specific, beneficiary: true } };
+    const html = renderToStaticMarkup(<PoaDocument data={d} name={d.name} poa={d.poa} />);
+    for (const phrase of [
+      'Statutory Form Power of Attorney',
+      'This power of attorney does not authorize the agent to make health care decisions for you.',
+      'I grant my agent and any successor agent general authority to act for me',
+      'Create, fund, amend, revoke, or terminate an inter vivos trust',
+      'Exercise authority over the content of electronic communications sent or received by the principal',
+      'Renounce an interest in property, including a power of appointment',
+      'An agent that is not my ancestor, spouse, or descendant SHALL NOT use my property',
+      'This document prepared by:',
+      '(Principal’s name) by (Your signature) as Agent.',
+      'The principal’s revocation of your authority or the power of attorney;',
+    ]) expect(html).toContain(phrase);
+    expect(html).toContain('Linda Ann Smith');
+    expect(html).toContain('Bibb');
+    const unmarked = { ...d.poa, allSubjects: false, specific: { ...d.poa.specific, beneficiary: false } };
+    expect(renderToStaticMarkup(<PoaDocument data={d} name={d.name} poa={unmarked} />)).toBe(html);
+    expect(poaInitials('GA', d.poa)).toEqual(['General authority: “All preceding subjects.”', 'Specific authority: “Create or change a beneficiary designation.”']);
+  });
+
+  it('drafts an Oregon durable power of attorney with the chosen effective date and Oregon notary block', () => {
+    const d = withPoa('OR');
+    d.poa.subjects = { ...d.poa.subjects, banks: true, taxes: true };
+    const now = renderToStaticMarkup(<PoaDocument data={d} name={d.name} poa={d.poa} />);
+    expect(now).toContain('Durable Power of Attorney (Financial)');
+    expect(now).toContain('effective when I sign it');
+    expect(now).toContain('This record was acknowledged before me on (date)');
+    expect(now).toContain('ORS 127.045');
+    const springing = renderToStaticMarkup(<PoaDocument data={d} name={d.name} poa={{ ...d.poa, effective: 'incapacity' }} />);
+    expect(springing).toContain('becomes effective only when I become financially incapable');
+    expect(springing).toContain('in writing by a physician');
+    expect(poaInitials('OR', d.poa)).toEqual(['General authority: “Banks and other financial institutions.”', 'General authority: “Taxes.”']);
+  });
+
+  it('flags a missing agent, no powers, and naming yourself', () => {
+    const d = withPoa('GA');
+    d.poa.agent.name = '';
+    let texts = checkPoa('GA', d.poa, 'Robert', d.name).map((i) => `${i.level}: ${i.text}`).join(' | ');
+    expect(texts).toContain('error: Robert: name an agent');
+    expect(texts).toContain('no areas of authority are picked');
+    d.poa.agent.name = 'Robert Lee Smith';
+    texts = checkPoa('GA', d.poa, 'Robert', d.name).map((i) => i.text).join(' ');
+    expect(texts).toContain('you can’t be your own agent');
+  });
+
+  it('keeps each spouse’s power of attorney separate and loads old files with it off', () => {
+    const d = withPoa('GA');
+    d.spousePoa = { ...d.spousePoa, agent: { name: 'Robert Lee Smith', relationship: 'spouse', address: '', phone: '' } };
+    expect(mirrorForSpouse(d).poa.agent.name).toBe('Robert Lee Smith');
+    const old = JSON.parse(JSON.stringify(parents())) as Record<string, unknown>;
+    delete old.poa; delete old.spousePoa; delete old.docs;
+    const n = normalize(old);
+    expect(n.docs.poa).toBe(false);
+    expect(n.poa.specific.gift).toBe(false);
   });
 });

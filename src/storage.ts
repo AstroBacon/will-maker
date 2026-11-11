@@ -1,4 +1,4 @@
-import { emptyDirective, emptyWill, newId, sameName, type Child, type ChildParent, type Directive, type WillData } from './types';
+import { emptyDirective, emptyPoa, emptyWill, newId, sameName, type Child, type ChildParent, type Directive, type Poa, type WillData } from './types';
 
 const KEY = 'will-maker:draft:v1';
 
@@ -16,7 +16,15 @@ export function normalize(raw: unknown): WillData {
     docs: { ...base.docs, ...(r.docs ?? {}) },
     directive: mergeDirective(r.directive),
     spouseDirective: mergeDirective(r.spouseDirective),
+    poa: mergePoa(r.poa),
+    spousePoa: mergePoa(r.spousePoa),
   };
+}
+
+function mergePoa(raw?: Partial<Poa>): Poa {
+  const base = emptyPoa();
+  if (!raw) return base;
+  return { ...base, ...raw, subjects: { ...base.subjects, ...(raw.subjects ?? {}) }, specific: { ...base.specific, ...(raw.specific ?? {}) } };
 }
 
 function mergeDirective(raw?: Partial<Directive>): Directive {
@@ -101,5 +109,7 @@ export function mirrorForSpouse(d: WillData): WillData {
     assets: d.assets.map((a) => ({ ...a, owner: a.owner === 'me' ? 'spouse' : a.owner === 'spouse' ? 'me' : 'joint' })),
     directive: d.spouseDirective,
     spouseDirective: d.directive,
+    poa: d.spousePoa,
+    spousePoa: d.poa,
   };
 }

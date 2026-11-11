@@ -19,20 +19,20 @@ import {
 /* Shared helpers                                                      */
 /* ------------------------------------------------------------------ */
 
-const LINE = '______________________';
+export const LINE = '______________________';
 const INIT = '________';
 
 /** A filled-in value, or a blank line to write on. */
-function Fill({ v, w = LINE }: { v?: string; w?: string }) {
+export function Fill({ v, w = LINE }: { v?: string; w?: string }) {
   return v && v.trim() ? <span className="fill">{v.trim()}</span> : <span>{w}</span>;
 }
 
 /** A hand-initial line. Choices are never pre-marked: the person initials them in ink. */
-function Init() {
+export function Init() {
   return <span className="init">{INIT}</span>;
 }
 
-function TextBlock({ v, lines = 3 }: { v: string; lines?: number }) {
+export function TextBlock({ v, lines = 3 }: { v: string; lines?: number }) {
   if (v.trim()) return <p className="typed">{v.trim()}</p>;
   return (
     <div className="blank-lines">
@@ -44,7 +44,7 @@ function TextBlock({ v, lines = 3 }: { v: string; lines?: number }) {
 }
 
 /** People who could be a health care agent: spouse and adult children. */
-function suggestions(d: WillData, forSpouse: boolean): { name: string; relationship: string }[] {
+export function suggestions(d: WillData, forSpouse: boolean): { name: string; relationship: string }[] {
   const out: { name: string; relationship: string }[] = [];
   const spouse = forSpouse ? d.name : d.spouseName;
   if (d.maritalStatus === 'married' && spouse.trim()) out.push({ name: spouse.trim(), relationship: 'spouse' });
@@ -57,7 +57,7 @@ function suggestions(d: WillData, forSpouse: boolean): { name: string; relations
   return out;
 }
 
-function PersonFields({
+export function PersonFields({
   legend,
   value,
   onChange,
@@ -100,7 +100,7 @@ function PersonFields({
   );
 }
 
-function Check({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode }) {
+export function Check({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode }) {
   return (
     <label className="check option">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
@@ -109,7 +109,7 @@ function Check({ checked, onChange, children }: { checked: boolean; onChange: (v
   );
 }
 
-function Radio<T extends string>({ name, value, current, onChange, children }: { name: string; value: T; current: T; onChange: (v: T) => void; children: ReactNode }) {
+export function Radio<T extends string>({ name, value, current, onChange, children }: { name: string; value: T; current: T; onChange: (v: T) => void; children: ReactNode }) {
   return (
     <label className="check option">
       <input type="radio" name={name} checked={current === value} onChange={() => onChange(value)} />
@@ -118,7 +118,7 @@ function Radio<T extends string>({ name, value, current, onChange, children }: {
   );
 }
 
-function Area({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (v: string) => void }) {
+export function Area({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>

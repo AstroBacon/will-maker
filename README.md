@@ -1,8 +1,8 @@
 # Will Maker
 
 A step-by-step form that produces a printable simple will, the state's official medical
-directive (advance directive for health care), and an executor asset list for **Georgia** and
-**Oregon**. Each document is optional and can be made on its own.
+directive (advance directive for health care), a financial power of attorney, and an executor
+asset list for **Georgia** and **Oregon**. Each document is optional and can be made on its own.
 Everything runs in the browser. Nothing is saved: answers disappear when the page closes
 unless the user downloads them to a file ("Save answers to a file") and loads it later.
 
@@ -31,5 +31,8 @@ Print with Chrome or Edge to get the "Page X of Y" and "Initials" footers.
 - `src/directive.tsx`: the medical directive step and the printed statutory forms
   (O.C.G.A. § 31-32-4, ORS 127.529). Choices are never pre-marked; an "initial these items"
   guide prints with the signing steps.
+- `src/poa.tsx`: the financial power of attorney. Georgia uses the O.C.G.A. § 10-6B-70
+  statutory form; Oregon has no statutory form, so its document is an app-drafted durable POA
+  built from ORS 127.002–127.045 and needs attorney review.
 - `src/counties.ts`: every county in each state, for the county dropdown.
 - `src/assets.tsx`: the optional asset list step and its printout. It is never part of the will.
