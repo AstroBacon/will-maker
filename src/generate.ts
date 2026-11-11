@@ -140,12 +140,14 @@ export function generateWill(d: WillData): WillDoc {
 
   // Guardian
   if (minorChildren(d).length > 0 && d.guardian.name.trim()) {
+    const gt = rules.guardianTitle;
     const g: string[] = [
-      `If at my death any child of mine is a minor and a guardian of that child’s person is needed, I appoint ${who(d.guardian)}${of(d.guardian.cityState)} as guardian.`,
+      `If at my death any child of mine is a minor and a guardian of that child’s person is needed, I nominate ${who(d.guardian)}${of(d.guardian.cityState)} as ${gt}.`,
     ];
     if (d.altGuardian.name.trim()) {
-      g.push(`If ${v(d.guardian.name)} is unable or unwilling to serve or to continue serving, I appoint ${who(d.altGuardian)}${of(d.altGuardian.cityState)} as guardian.`);
+      g.push(`If ${v(d.guardian.name)} is unable or unwilling to serve or to continue serving, I nominate ${who(d.altGuardian)}${of(d.altGuardian.cityState)} as ${gt}.`);
     }
+    if (rules.guardianRequest) g.push(rules.guardianRequest);
     articles.push({ title: 'Guardian of Minor Children', paragraphs: g });
   }
 

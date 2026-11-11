@@ -60,7 +60,10 @@ describe('generateWill', () => {
     d.children[1].isMinor = true;
     d.guardian = { name: 'Carol Jones', relationship: 'sister', cityState: '' };
     const g = generateWill(d).articles.find((a) => a.title === 'Guardian of Minor Children');
-    expect(g?.paragraphs[0]).toContain('I appoint Carol Jones (my sister) as guardian.');
+    expect(g?.paragraphs[0]).toContain('I nominate Carol Jones (my sister) as testamentary guardian.');
+    const og = generateWill({ ...d, state: 'OR' }).articles.find((a) => a.title === 'Guardian of Minor Children');
+    expect(og?.paragraphs[0]).toContain('I nominate Carol Jones (my sister) as guardian.');
+    expect(og?.paragraphs.at(-1)).toContain('request that the court give effect to this preference');
   });
 
   it('names children who receive nothing as intentionally omitted', () => {
@@ -132,6 +135,11 @@ describe('WillDocument', () => {
     const ga = renderToStaticMarkup(<WillDocument data={parents('GA')} draft={false} />);
     expect(ga).toContain('Self-Proving Affidavit');
     expect(ga).toContain('STATE OF GEORGIA');
+    // Statutory form, O.C.G.A. § 53-4-24(b)
+    expect(ga).toContain('whose names are subscribed to the annexed or foregoing instrument in their respective capacities');
+    expect(ga).toContain('the testator was 14 years of age or over and of sound mind; and that each of the witnesses was then at least 14 years of age');
+    expect(ga).toContain('Sworn to and subscribed before me by Robert Lee Smith, testator');
+    expect(ga).toContain('(Official Capacity of Officer)');
     const or = renderToStaticMarkup(<WillDocument data={parents('OR')} draft={false} />);
     expect(or).toContain('Affidavit of Attesting Witnesses');
     expect(or).toContain('saw Robert Lee Smith sign');

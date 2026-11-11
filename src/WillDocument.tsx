@@ -30,30 +30,34 @@ function Witnesses() {
 function GeorgiaAffidavit({ name }: { name: string }) {
   return (
     <section className="affidavit">
+      {/* Text follows the statutory form in O.C.G.A. § 53-4-24(b), verified against two copies of the Code. */}
       <h2>Self-Proving Affidavit</h2>
-      <p>STATE OF GEORGIA<br />COUNTY OF {BLANK}</p>
+      <p>STATE OF GEORGIA<br />COUNTY of {BLANK}</p>
       <p>
         Before me, the undersigned authority, on this day personally appeared {name}, {BLANK}, and {BLANK}, known to me to
-        be the testator and the witnesses, respectively, whose names are signed to the attached or foregoing instrument and,
-        all of these persons being by me first duly sworn, {name}, the testator, declared to me and to the witnesses in my
-        presence that said instrument is the testator’s will and that the testator has willingly signed or directed another
-        to sign the same, and executed it in the presence of said witnesses as the testator’s free and voluntary act for
-        the purposes therein expressed; that said witnesses, being sworn, stated to me in the presence and hearing of the
-        testator that the testator signed or directed another to sign the will in their presence, that they believed the
-        testator to be of sound mind, and that the witnesses signed as witnesses in the presence of the testator.
+        be the testator and the witnesses, respectively, whose names are subscribed to the annexed or foregoing instrument
+        in their respective capacities, and all of said individuals being by me duly sworn, {name}, testator, declared to me
+        and to the witnesses in my presence that said instrument is the last will and testament of the testator and that the
+        testator had willingly made and executed it as a free act and deed for the purposes expressed therein. The witnesses,
+        each on oath, stated to me in the presence and hearing of the testator that the testator had declared to them that
+        the instrument is the testator’s last will and testament and that the testator executed the instrument as such and
+        wished each of them to sign it as a witness; and under oath each witness stated further that the witness had signed
+        the same as witness in the presence of the testator and at the testator’s request; that the testator was 14 years
+        of age or over and of sound mind; and that each of the witnesses was then at least 14 years of age.
       </p>
-      <SigLine label={`${name}, Testator`} />
+      <SigLine label="Testator" />
       <Witnesses />
       <div className="jurat">
-      <p>
-        Subscribed, sworn to, and acknowledged before me by {name}, the testator, and subscribed and sworn to before me by{' '}
-        {BLANK} and {BLANK}, witnesses, this {BLANK} day of {BLANK}, 20____.
-      </p>
-      <div className="notary">
-        <SigLine label="Notary Public" />
-        <SigLine label="My commission expires" />
-        <div className="seal">(SEAL)</div>
-      </div>
+        <p>
+          Sworn to and subscribed before me by {name}, testator, and sworn to and subscribed before me by {BLANK} and{' '}
+          {BLANK}, witnesses, this {BLANK} day of {BLANK}, 20____.
+        </p>
+        <div className="notary">
+          <div className="seal">(SEAL)</div>
+          <SigLine label="(Signed)" />
+          <SigLine label="(Official Capacity of Officer)" />
+          <SigLine label="My commission expires" />
+        </div>
       </div>
     </section>
   );
