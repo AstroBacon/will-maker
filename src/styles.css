@@ -223,8 +223,52 @@ textarea:focus { outline: 3px solid var(--accent); outline-offset: 1px; }
 .info-block p { white-space: pre-wrap; margin: 0; }
 .asset-foot { margin-top: 16pt; color: #444; font-style: italic; }
 
+/* Medical directive (official state form) */
+.option { align-items: flex-start; padding: 6px 0; }
+.option input { margin-top: 4px; flex-shrink: 0; }
+.option > span { display: flex; flex-direction: column; gap: 2px; }
+.doc-choice { padding: 10px 0; border-top: 1px solid var(--border); }
+.doc-choice:first-of-type { border-top: 0; }
+.sub-options { margin: 4px 0 8px 28px; }
+.person-tabs { width: fit-content; margin-bottom: 12px; }
+.initials-guide { margin-top: 12px; }
+.initials-guide h4 { margin: 8px 0 4px; }
+.initials-guide ul { list-style: none; padding-left: 0; margin: 0; }
+.initials-guide li { margin-bottom: 4px; }
+
+.directive-document {
+  background: var(--paper); color: var(--paper-text);
+  font-family: 'Times New Roman', Georgia, serif; font-size: 11pt; line-height: 1.45;
+  padding: 0.9in 0.85in; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+.directive-document h1 { text-align: center; font-size: 15pt; text-transform: uppercase; margin: 0 0 14pt; }
+.directive-document h2 { font-size: 12pt; margin: 18pt 0 6pt; text-transform: uppercase; }
+.directive-document h3 { font-size: 11pt; margin: 12pt 0 4pt; }
+.directive-document p { margin: 0 0 6pt; }
+.directive-document .bracket { font-style: italic; }
+.directive-document .opt { padding-left: 0.2in; }
+.directive-document .opt.sub { padding-left: 0.6in; }
+.directive-document .or { padding-left: 0.4in; font-weight: 600; }
+.directive-document .small { font-size: 9pt; }
+.directive-document .fill { border-bottom: 1px solid #111; padding: 0 4px; font-weight: 600; }
+.directive-document .init { margin-right: 4px; }
+.directive-document .typed { white-space: pre-wrap; border-left: 2px solid #999; padding-left: 8pt; }
+.directive-document .blank-line { border-bottom: 1px solid #111; height: 18pt; }
+.directive-document ul.dash { list-style: none; padding-left: 0.3in; }
+.directive-document ul.dash > li::before { content: '-- '; }
+.directive-document ul.bullets { padding-left: 0.25in; }
+.form-person { margin: 4pt 0 8pt 0.2in; display: flex; flex-direction: column; gap: 3pt; }
+.sig-pair { display: grid; grid-template-columns: 2fr 1fr; gap: 0.4in; margin-top: 26pt; }
+.witness-block { margin-bottom: 8pt; }
+.sig-pair + p, .keep-together > .sig-pair { margin-bottom: 12pt; }
+.witness-block p { margin-top: 6pt; }
+
 /* Page footers (page numbers, initials) only on will pages. */
 @page { size: letter; margin: 0.9in; }
+@page directive {
+  margin: 0.9in;
+  @bottom-left { content: 'Page ' counter(page) ' of ' counter(pages); font: 9pt 'Times New Roman', serif; }
+}
 @page will {
   margin: 1in;
   @bottom-left { content: 'Page ' counter(page) ' of ' counter(pages); font: 9pt 'Times New Roman', serif; }
@@ -238,6 +282,9 @@ textarea:focus { outline: 3px solid var(--accent); outline-offset: 1px; }
   main, main.wide { max-width: none; }
   .paper-wrap { overflow: visible; margin: 0; }
   .will-document { border: 0; box-shadow: none; padding: 0; page: will; }
+  .directive-document { border: 0; box-shadow: none; padding: 0; page: directive; }
+  .directive-document h2, .directive-document h3 { break-after: avoid; }
+  .form-person, .sig-pair, .witness-block { break-inside: avoid; }
   .keep-together, .execution, .jurat { break-inside: avoid; }
   .sig-line { margin-top: 24pt; }
   .affidavit { break-before: page; border-top: 0; margin-top: 0; padding-top: 0; }
@@ -247,7 +294,10 @@ textarea:focus { outline: 3px solid var(--accent); outline-offset: 1px; }
   body[data-print] .print-doc { display: none !important; }
   body[data-print='will-a'] .print-will-a,
   body[data-print='will-b'] .print-will-b,
+  body[data-print='dir-a'] .print-dir-a,
+  body[data-print='dir-b'] .print-dir-b,
   body[data-print='assets'] .print-assets,
   body[data-print='checklist'] .checklist { display: block !important; }
   .checklist { border: 0; padding: 0; }
+  .doc-section .doc-header { display: none; }
 }

@@ -1,6 +1,8 @@
 # Will Maker
 
-A step-by-step form that produces a printable simple will for **Georgia** and **Oregon**.
+A step-by-step form that produces a printable simple will, the state's official medical
+directive (advance directive for health care), and an executor asset list for **Georgia** and
+**Oregon**. Each document is optional and can be made on its own.
 Everything runs in the browser. Nothing is saved: answers disappear when the page closes
 unless the user downloads them to a file ("Save answers to a file") and loads it later.
 
@@ -26,4 +28,8 @@ Print with Chrome or Edge to get the "Page X of Y" and "Initials" footers.
 - `src/steps.tsx`: the form steps.
 - `src/storage.ts`: saving and loading answer files, plus `mirrorForSpouse`, which builds the second will in couples mode
   (swaps the spouses, fixes child/stepchild labels from that spouse's point of view).
+- `src/directive.tsx`: the medical directive step and the printed statutory forms
+  (O.C.G.A. § 31-32-4, ORS 127.529). Choices are never pre-marked; an "initial these items"
+  guide prints with the signing steps.
+- `src/counties.ts`: every county in each state, for the county dropdown.
 - `src/assets.tsx`: the optional asset list step and its printout. It is never part of the will.

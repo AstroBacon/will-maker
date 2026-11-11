@@ -3,7 +3,7 @@ import { minorChildren, omittedChildren } from './generate';
 import { RULES } from './states';
 import { firstName, sameName, type Asset, type ResiduaryTier, type WillData } from './types';
 
-export type StepId = 'start' | 'you' | 'children' | 'executor' | 'guardian' | 'gifts' | 'residue' | 'assets' | 'review';
+export type StepId = 'start' | 'you' | 'children' | 'executor' | 'guardian' | 'gifts' | 'residue' | 'assets' | 'directive' | 'review';
 
 export interface Issue {
   level: 'error' | 'warning' | 'info';
@@ -21,6 +21,16 @@ function tierIssues(tier: ResiduaryTier, label: string): Issue[] {
   return out;
 }
 
+/** Checks that apply whatever documents are being made. */
+export function checkBasics(d: WillData): Issue[] {
+  const issues: Issue[] = [];
+  if (!d.state) issues.push({ level: 'error', step: 'start', text: 'Choose your state.' });
+  if (!Object.values(d.docs).some(Boolean)) issues.push({ level: 'error', step: 'start', text: 'Choose at least one document to make.' });
+  if (!d.name.trim()) issues.push({ level: 'error', step: 'you', text: 'Enter your full legal name.' });
+  if (d.maritalStatus === 'married' && !d.spouseName.trim()) issues.push({ level: 'error', step: 'you', text: 'Enter your spouse’s name.' });
+  return issues;
+}
+
 /** Checks one will. `d` is always written from the will-maker's point of view. */
 export function checkWill(d: WillData): Issue[] {
   const issues: Issue[] = [];
@@ -28,13 +38,10 @@ export function checkWill(d: WillData): Issue[] {
   const warn = (step: StepId, text: string) => issues.push({ level: 'warning', step, text });
   const info = (step: StepId, text: string) => issues.push({ level: 'info', step, text });
 
-  if (!d.state) err('start', 'Choose your state.');
-  if (!d.name.trim()) err('you', 'Enter your full legal name.');
   if (!d.city.trim()) err('you', 'Enter the city you live in.');
   if (d.state && !matchCounty(d.state, d.county)) {
     err('you', d.county.trim() ? `“${d.county.trim()}” isn’t a county in ${RULES[d.state].name}. Choose your county from the list.` : 'Choose your county.');
   }
-  if (d.maritalStatus === 'married' && !d.spouseName.trim()) err('you', 'Enter your spouse’s name.');
   if (d.children.some((c) => !c.name.trim())) err('children', 'One of your children is missing a name.');
 
   if (!d.executor.name.trim()) err('executor', 'Choose someone to be in charge of your estate.');

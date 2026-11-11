@@ -2,7 +2,7 @@ import { FiduciaryFields, Help, RelationshipField, TextField, type PersonSuggest
 import { COUNTIES, matchCounty } from './counties';
 import { minorChildren } from './generate';
 import { RULES } from './states';
-import { emptyTier, firstName, isCouple, newId, type ChildParent, type MaritalStatus, type ResiduaryTier, type Share, type SpecificGift, type WillData } from './types';
+import { emptyTier, firstName, isCouple, newId, type ChildParent, type Docs, type MaritalStatus, type ResiduaryTier, type Share, type SpecificGift, type WillData } from './types';
 
 export interface StepProps {
   data: WillData;
@@ -19,13 +19,19 @@ function peopleSuggestions(d: WillData, includeSpouse: boolean): PersonSuggestio
   return out;
 }
 
+const DOC_CHOICES: { key: keyof Docs; label: string; hint: string }[] = [
+  { key: 'will', label: 'Last will and testament', hint: 'Who gets your property, who handles your estate, and who would raise young children.' },
+  { key: 'directive', label: 'Medical directive (advance directive for health care)', hint: 'Who makes medical decisions if you can’t, and your wishes about life support. Uses your state’s official form.' },
+  { key: 'assets', label: 'Asset list for your executor', hint: 'A practical list of accounts, property, and contacts. Not a legal document.' },
+];
+
 export function StartStep({ data, set }: StepProps) {
   return (
     <>
-      <h2>Let’s write your will</h2>
+      <h2>Let’s get your documents ready</h2>
       <p className="lead">
-        This takes about 15 minutes. You’ll answer a few plain questions, and at the end you’ll get a will to print and sign
-        with two witnesses.
+        You’ll answer a few plain questions, and at the end you’ll get documents ready to print and sign. A will takes
+        about 15 minutes; a medical directive about 10.
       </p>
       <p>
         Nothing you type is saved or sent anywhere. If you close this page, your answers are gone. To finish later, use
@@ -43,9 +49,23 @@ export function StartStep({ data, set }: StepProps) {
         {data.state && <p className="field-hint">{RULES[data.state].minAgeNote}</p>}
         <p className="field-hint">More states are coming. Use the state where you live permanently.</p>
       </fieldset>
+      <fieldset className="card">
+        <legend>What do you want to make?</legend>
+        <p className="field-hint">Pick any combination. Each one is separate, so you can come back and redo just one.</p>
+        {DOC_CHOICES.map((c) => (
+          <label key={c.key} className="check option doc-choice">
+            <input type="checkbox" checked={data.docs[c.key]} onChange={(e) => set({ docs: { ...data.docs, [c.key]: e.target.checked } })} />
+            <span>
+              <strong>{c.label}</strong>
+              <span className="field-hint">{c.hint}</span>
+            </span>
+          </label>
+        ))}
+        {!Object.values(data.docs).some(Boolean) && <p className="field-hint bad">Pick at least one.</p>}
+      </fieldset>
       <p className="disclaimer">
-        This tool fills in a will form based on your answers. It is not a lawyer and doesn’t give legal advice. Have a lawyer
-        look over your will, especially if your situation is complicated: a business, property in another state, a blended
+        This tool fills in legal forms based on your answers. It is not a lawyer and doesn’t give legal advice. Have a lawyer
+        look over your documents, especially if your situation is complicated: a business, property in another state, a blended
         family, or a family member with special needs.
       </p>
     </>
@@ -97,7 +117,7 @@ export function YouStep({ data, set }: StepProps) {
       </fieldset>
       {data.maritalStatus === 'married' && (
         <fieldset className="card">
-          <legend>Make a will for {firstName(data.spouseName)} at the same time?</legend>
+          <legend>Make documents for {firstName(data.spouseName)} at the same time?</legend>
           <div className="choice-row">
             <button type="button" className={`choice ${data.couple ? 'selected' : ''}`} onClick={() => set({ couple: true })}>
               Yes, both of us
@@ -107,8 +127,9 @@ export function YouStep({ data, set }: StepProps) {
             </button>
           </div>
           <p className="field-hint">
-            Each of you needs your own will. With “both of us,” you answer once and get two matching wills: each leaves
-            everything to the other first, with the same backup plan. You can each still leave your own specific gifts.
+            Each of you needs your own documents. With “both of us,” you answer once and get two matching wills: each leaves
+            everything to the other first, with the same backup plan. You can each still leave your own specific gifts, and
+            each of you fills out your own medical directive.
           </p>
         </fieldset>
       )}

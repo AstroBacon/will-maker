@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AssetDocument } from './assets';
+import { checkDirective, DirectiveDocument, initialsGuide } from './directive';
 import { cleanCity, COUNTIES, matchCounty } from './counties';
-import { checkAssets, checkWill } from './checks';
+import { checkAssets, checkBasics, checkWill } from './checks';
 import { BLANK, generateWill } from './generate';
 import { mirrorForSpouse, normalize } from './storage';
 import { emptyWill, newId, type Asset, type WillData } from './types';
@@ -104,7 +105,7 @@ describe('generateWill', () => {
   });
 
   it('flags missing required info on an empty will', () => {
-    const errs = checkWill(emptyWill()).filter((i) => i.level === 'error').map((i) => i.step);
+    const errs = [...checkBasics(emptyWill()), ...checkWill(emptyWill())].filter((i) => i.level === 'error').map((i) => i.step);
     expect(errs).toEqual(expect.arrayContaining(['start', 'you', 'executor', 'residue']));
   });
 });
@@ -268,5 +269,98 @@ describe('city and county', () => {
     expect(cleanCity('Portland, OR')).toBe('Portland');
     expect(cleanCity('Gainesville')).toBe('Gainesville');
     for (const c of ['Omega', 'Vega', 'Oregon City', 'Ortega']) expect(cleanCity(c)).toBe(c);
+  });
+});
+
+describe('medical directive', () => {
+  const withDirective = (state: 'GA' | 'OR') => {
+    const d = { ...parents(state), docs: { will: false, assets: false, directive: true } };
+    d.directive = { ...d.directive, dob: '12/23/1978', agent: { name: 'Linda Ann Smith', relationship: 'spouse', address: '', phone: '770-555-0100' }, alt1: { name: 'Amy Smith', relationship: 'child', address: '', phone: '' } };
+    return d;
+  };
+
+  it('prints the Georgia statutory form with names filled in and every initial line blank', () => {
+    const d = withDirective('GA');
+    d.directive.ga = { ...d.directive.ga, condTerminal: true, condUnconscious: true, preference: 'B', body: 'cremated', additional: 'No dialysis.' };
+    const html = renderToStaticMarkup(<DirectiveDocument state="GA" name={d.name} dir={d.directive} />);
+    // Statutory text (O.C.G.A. § 31-32-4)
+    for (const phrase of [
+      'Georgia Advance Directive for Health Care',
+      'My health care agent may accompany me in an ambulance or air ambulance',
+      'Allow my natural death to occur.',
+      'If I need assistance to breathe, I want to have a ventilator used.',
+      'Cannot be a person who will knowingly inherit anything from you',
+      'the witnesses do not have to be together or present with you when you sign this form',
+      '[This form does not need to be notarized.]',
+    ]) expect(html).toContain(phrase);
+    expect(html).toContain('Linda Ann Smith');
+    expect(html).toContain('12/23/1978');
+    expect(html).toContain('No dialysis.');
+    // Choices are not pre-marked: the form is identical whatever preference is chosen.
+    const other = { ...d.directive, ga: { ...d.directive.ga, preference: 'A' as const, body: 'buried' as const } };
+    const strip = (h: string) => h.replace('No dialysis.', '');
+    expect(strip(renderToStaticMarkup(<DirectiveDocument state="GA" name={d.name} dir={other} />))).toBe(strip(html));
+    // ...and the initials guide says exactly what to initial.
+    expect(initialsGuide('GA', d.directive)).toEqual([
+      'Section (5)(C): “Cremated.”',
+      'Section (6): terminal condition.',
+      'Section (6): state of permanent unconsciousness.',
+      'Section (7)(B): “Allow my natural death to occur…”',
+    ]);
+  });
+
+  it('prints the Oregon statutory form with acceptance lines for each representative', () => {
+    const d = withDirective('OR');
+    d.directive.or = { ...d.directive.or, terminal: '3', unconscious: '3', progressive: '4', abilities: { ...d.directive.or.abilities, know: true } };
+    const html = renderToStaticMarkup(<DirectiveDocument state="OR" name={d.name} dir={d.directive} />);
+    for (const phrase of [
+      'Oregon Advance Directive for Health Care',
+      'It is not the same as Portable Orders for Life Sustaining Treatment (POLST)',
+      'Initial one option only.',
+      'I want to be kept comfortable and be allowed to die naturally.',
+      'COMPLETE EITHER A OR B WHEN YOU SIGN',
+      'Notary Public - State of Oregon',
+      'I accept this appointment and agree to serve as health care representative.',
+      'Signature or other verification of acceptance',
+    ]) expect(html).toContain(phrase);
+    expect(html).not.toContain('an hydration');
+    expect(initialsGuide('OR', d.directive)).toEqual([
+      'Section 3.A.a (Terminal Condition): “I do not want treatments to sustain my life, such as artificial feeding and hydration with feeding tubes, IV fluids, kidney dialysis or breathing machines.”',
+      'Section 3.A.b (Advanced Progressive Illness): “I want my health care representative to decide for me, after talking with my health care providers and taking into account the things that matter to me.”',
+      'Section 3.A.c (Permanently Unconscious): “I do not want treatments to sustain my life, such as artificial feeding and hydration with feeding tubes, IV fluids, kidney dialysis or breathing machines.”',
+      'Section 3.B: “Know who I am and who I am with.”',
+    ]);
+  });
+
+  it('warns about choices that would never take effect', () => {
+    const d = withDirective('GA');
+    d.directive.ga.preference = 'B';
+    expect(checkDirective('GA', d.directive, 'Robert').map((i) => i.text).join(' ')).toContain('no condition in Section (6)');
+    d.directive.agent.name = '';
+    d.directive.ga.guardian = 'A';
+    const texts = checkDirective('GA', d.directive, 'Robert').map((i) => i.text).join(' ');
+    expect(texts).toContain('no health care agent is named');
+    expect(texts).toContain('nominated “my health care agent” as guardian');
+    const o = withDirective('OR');
+    o.directive.agent.name = '';
+    o.directive.or.terminal = '4';
+    expect(checkDirective('OR', o.directive, 'Robert').map((i) => i.text).join(' ')).toContain('let my representative decide');
+  });
+
+  it('keeps each spouse’s directive separate in couples mode', () => {
+    const d = withDirective('GA');
+    d.spouseDirective = { ...d.spouseDirective, agent: { name: 'Robert Lee Smith', relationship: 'spouse', address: '', phone: '' } };
+    const m = mirrorForSpouse(d);
+    expect(m.directive.agent.name).toBe('Robert Lee Smith');
+    expect(m.spouseDirective.agent.name).toBe('Linda Ann Smith');
+  });
+
+  it('loads older answer files: will on, directive off', () => {
+    const old = JSON.parse(JSON.stringify(parents())) as Record<string, unknown>;
+    delete old.docs; delete old.directive; delete old.spouseDirective;
+    const d = normalize(old);
+    expect(d.docs).toEqual({ will: true, assets: false, directive: false });
+    expect(d.directive.ga.preference).toBe('');
+    expect(d.spouseDirective.or.abilities.know).toBe(false);
   });
 });

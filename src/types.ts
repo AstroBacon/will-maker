@@ -67,6 +67,75 @@ export interface ExecutorInfo {
   wishes: string;
 }
 
+/** Which documents the user is making. Each can be made (or remade) on its own. */
+export interface Docs {
+  will: boolean;
+  assets: boolean;
+  directive: boolean;
+}
+
+/** Someone named in the advance directive (health care agent/representative, guardian, etc.). */
+export interface HealthPerson {
+  name: string;
+  relationship: string;
+  address: string;
+  phone: string;
+}
+
+/** Georgia advance directive choices (O.C.G.A. § 31-32-4). */
+export interface GaDirective {
+  noAutopsy: boolean;
+  noMedicalStudy: boolean;
+  noOrganDonation: boolean;
+  dispositionByOther: boolean;
+  dispositionPerson: HealthPerson;
+  body: '' | 'buried' | 'cremated';
+  condTerminal: boolean;
+  condUnconscious: boolean;
+  preference: '' | 'A' | 'B' | 'C';
+  cNutrition: boolean;
+  cFluids: boolean;
+  cVentilator: boolean;
+  cCpr: boolean;
+  additional: string;
+  pregnancy: boolean;
+  guardian: '' | 'A' | 'B';
+  guardianPerson: HealthPerson;
+}
+
+/** One answer to an Oregon life-support question: options 1–4 of ORS 127.529 § 3.A. */
+export type OrOption = '' | '1' | '2' | '3' | '4';
+
+/** Oregon advance directive choices (ORS 127.529). */
+export interface OrDirective {
+  terminal: OrOption;
+  progressive: OrOption;
+  unconscious: OrOption;
+  moreCare: string;
+  knowAboutMe: string;
+  valueMost: string;
+  importantFor: string;
+  abilities: { express: boolean; pain: boolean; know: boolean; noMachines: boolean; activities: boolean };
+  activitiesText: string;
+  sayMore: string;
+  spiritual: string;
+  lifeValues: string;
+  placeOfCare: string;
+  attachments: string;
+  inform: HealthPerson;
+}
+
+export interface Directive {
+  dob: string;
+  address: string;
+  phone: string;
+  agent: HealthPerson;
+  alt1: HealthPerson;
+  alt2: HealthPerson;
+  ga: GaDirective;
+  or: OrDirective;
+}
+
 export interface WillData {
   state: StateCode | '';
   name: string;
@@ -86,6 +155,10 @@ export interface WillData {
   spouseGifts: SpecificGift[];
   assets: Asset[];
   info: ExecutorInfo;
+  docs: Docs;
+  /** The will-maker's advance directive, and (couples mode) the spouse's. */
+  directive: Directive;
+  spouseDirective: Directive;
   /** Who gets "everything else" first. */
   primary: ResiduaryTier;
   /** Backup group if nobody in the primary group (or their descendants, if applicable) survives. */
@@ -102,6 +175,55 @@ export const emptyTier = (lapse: LapseRule = 'descendants'): ResiduaryTier => ({
   split: 'equal',
   lapse,
 });
+
+export const emptyHealthPerson = (): HealthPerson => ({ name: '', relationship: '', address: '', phone: '' });
+
+export function emptyDirective(): Directive {
+  return {
+    dob: '',
+    address: '',
+    phone: '',
+    agent: emptyHealthPerson(),
+    alt1: emptyHealthPerson(),
+    alt2: emptyHealthPerson(),
+    ga: {
+      noAutopsy: false,
+      noMedicalStudy: false,
+      noOrganDonation: false,
+      dispositionByOther: false,
+      dispositionPerson: emptyHealthPerson(),
+      body: '',
+      condTerminal: false,
+      condUnconscious: false,
+      preference: '',
+      cNutrition: false,
+      cFluids: false,
+      cVentilator: false,
+      cCpr: false,
+      additional: '',
+      pregnancy: false,
+      guardian: '',
+      guardianPerson: emptyHealthPerson(),
+    },
+    or: {
+      terminal: '',
+      progressive: '',
+      unconscious: '',
+      moreCare: '',
+      knowAboutMe: '',
+      valueMost: '',
+      importantFor: '',
+      abilities: { express: false, pain: false, know: false, noMachines: false, activities: false },
+      activitiesText: '',
+      sayMore: '',
+      spiritual: '',
+      lifeValues: '',
+      placeOfCare: '',
+      attachments: '',
+      inform: emptyHealthPerson(),
+    },
+  };
+}
 
 export function emptyWill(): WillData {
   return {
@@ -121,6 +243,9 @@ export function emptyWill(): WillData {
     spouseGifts: [],
     assets: [],
     info: { documents: '', contacts: '', digital: '', wishes: '' },
+    docs: { will: true, assets: false, directive: false },
+    directive: emptyDirective(),
+    spouseDirective: emptyDirective(),
     primary: emptyTier(),
     contingent: emptyTier(),
   };

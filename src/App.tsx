@@ -1,30 +1,58 @@
-import { useEffect, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { AssetDocument, AssetsStep, hasAssetList } from './assets';
-import { checkAssets, checkWill, type Issue, type StepId } from './checks';
+import { checkAssets, checkBasics, checkWill, type Issue, type StepId } from './checks';
+import { checkDirective, DIRECTIVE_SIGNING, DirectiveDocument, DirectiveStep, initialsGuide } from './directive';
 import { RULES } from './states';
 import { ChildrenStep, ExecutorStep, GiftsStep, GuardianStep, ResidueStep, StartStep, YouStep, type StepProps } from './steps';
 import { downloadDraft, mirrorForSpouse, purgeStoredDraft, readDraftFile } from './storage';
 import { emptyWill, firstName, isCouple, type WillData } from './types';
 import { WillDocument } from './WillDocument';
 
-const STEPS: { id: StepId; label: string; Component?: ComponentType<StepProps> }[] = [
+interface StepDef {
+  id: StepId;
+  label: string;
+  Component?: ComponentType<StepProps>;
+  show?: (d: WillData) => boolean;
+}
+
+const forWill = (d: WillData) => d.docs.will;
+
+const STEPS: StepDef[] = [
   { id: 'start', label: 'Start', Component: StartStep },
   { id: 'you', label: 'About you', Component: YouStep },
-  { id: 'children', label: 'Children', Component: ChildrenStep },
-  { id: 'executor', label: 'Executor', Component: ExecutorStep },
-  { id: 'guardian', label: 'Guardian', Component: GuardianStep },
-  { id: 'gifts', label: 'Specific gifts', Component: GiftsStep },
-  { id: 'residue', label: 'Everything else', Component: ResidueStep },
-  { id: 'assets', label: 'Asset list', Component: AssetsStep },
+  { id: 'children', label: 'Children', Component: ChildrenStep, show: (d) => d.docs.will || d.docs.assets || d.docs.directive },
+  { id: 'executor', label: 'Executor', Component: ExecutorStep, show: forWill },
+  { id: 'guardian', label: 'Guardian', Component: GuardianStep, show: forWill },
+  { id: 'gifts', label: 'Specific gifts', Component: GiftsStep, show: forWill },
+  { id: 'residue', label: 'Everything else', Component: ResidueStep, show: forWill },
+  { id: 'directive', label: 'Medical directive', Component: DirectiveStep, show: (d) => d.docs.directive },
+  { id: 'assets', label: 'Asset list', Component: AssetsStep, show: (d) => d.docs.assets },
   { id: 'review', label: 'Review & print' },
 ];
 
-type PrintPart = 'will-a' | 'will-b' | 'checklist' | 'assets';
+type PrintPart = 'will-a' | 'will-b' | 'dir-a' | 'dir-b' | 'checklist' | 'assets';
 
 function printPart(part: PrintPart) {
   document.body.dataset.print = part;
   window.print();
   delete document.body.dataset.print;
+}
+
+/** Every check for the selected documents, for both spouses in couples mode. */
+function allIssues(d: WillData) {
+  const couple = isCouple(d);
+  const spouse = couple ? mirrorForSpouse(d) : null;
+  const basics = checkBasics(d);
+  const willA = d.docs.will ? checkWill(d) : [];
+  const willB = d.docs.will && spouse ? checkWill(spouse).filter((i) => !willA.some((a) => a.text === i.text)) : [];
+  const dirIssues = d.docs.directive
+    ? [
+        ...checkDirective(d.state, d.directive, couple ? `${firstName(d.name, 'Your')}’s directive` : 'Your directive'),
+        ...(couple ? checkDirective(d.state, d.spouseDirective, `${firstName(d.spouseName)}’s directive`) : []),
+      ]
+    : [];
+  const assetIssues = d.docs.assets ? checkAssets(d) : [];
+  return { basics, willA, willB, dirIssues, assetIssues, all: [...basics, ...willA, ...willB, ...dirIssues, ...assetIssues] };
 }
 
 function IssueList({ issues, goTo, title }: { issues: Issue[]; goTo: (s: StepId) => void; title?: string }) {
@@ -52,62 +80,106 @@ function IssueList({ issues, goTo, title }: { issues: Issue[]; goTo: (s: StepId)
   );
 }
 
+/** A document section on the review page: heading, person tabs (couples), print buttons, preview. */
+function DocSection({
+  title,
+  couple,
+  nameA,
+  nameB,
+  partA,
+  partB,
+  renderA,
+  renderB,
+  className,
+}: {
+  title: string;
+  couple: boolean;
+  nameA: string;
+  nameB: string;
+  partA: PrintPart;
+  partB: PrintPart;
+  renderA: () => ReactNode;
+  renderB: () => ReactNode;
+  className: string;
+}) {
+  const [tab, setTab] = useState<'a' | 'b'>('a');
+  return (
+    <section className="doc-section">
+      <div className="doc-header no-print">
+        <h3>{title}</h3>
+        {couple && (
+          <div className="tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={tab === 'a'} className={`tab ${tab === 'a' ? 'active' : ''}`} onClick={() => setTab('a')}>
+              {nameA}’s
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'b'} className={`tab ${tab === 'b' ? 'active' : ''}`} onClick={() => setTab('b')}>
+              {nameB}’s
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="actions no-print">
+        <button type="button" className="primary" onClick={() => printPart(partA)}>
+          Print {couple ? `${nameA}’s` : ''} {title.toLowerCase()}
+        </button>
+        {couple && (
+          <button type="button" className="primary" onClick={() => printPart(partB)}>
+            Print {nameB}’s {title.toLowerCase()}
+          </button>
+        )}
+      </div>
+      <div className={`paper-wrap print-doc print-${partA} ${className} ${tab === 'a' ? '' : 'screen-hidden'}`}>{renderA()}</div>
+      {couple && <div className={`paper-wrap print-doc print-${partB} ${className} ${tab === 'b' ? '' : 'screen-hidden'}`}>{renderB()}</div>}
+    </section>
+  );
+}
+
 function ReviewStep({ data, setData, goTo }: { data: WillData; setData: (d: WillData) => void; goTo: (s: StepId) => void }) {
   const couple = isCouple(data);
-  const spouseWill = couple ? mirrorForSpouse(data) : null;
-  const [tab, setTab] = useState<'a' | 'b'>('a');
-  const shown = tab === 'b' && spouseWill ? 'b' : 'a';
-
-  const issuesA = checkWill(data);
-  const issuesB = spouseWill ? checkWill(spouseWill).filter((i) => !issuesA.some((a) => a.text === i.text)) : [];
-  const assetIssues = checkAssets(data);
-  const errors = [...issuesA, ...issuesB].filter((i) => i.level === 'error');
+  const spouse = couple ? mirrorForSpouse(data) : null;
+  const { basics, willA, willB, dirIssues, assetIssues, all } = allIssues(data);
+  const errors = all.filter((i) => i.level === 'error');
   const rules = RULES[data.state || 'GA'];
   const fileRef = useRef<HTMLInputElement>(null);
   const nameA = firstName(data.name, 'Your');
   const nameB = firstName(data.spouseName);
-  const assets = hasAssetList(data);
+  const assets = data.docs.assets && hasAssetList(data);
+  const st = data.state || 'GA';
 
   return (
     <>
       <h2>Review and print</h2>
-      {errors.length > 0 ? (
-        <p className="lead">A few things still need to be filled in before {couple ? 'these are' : 'this is'} ready to sign.</p>
-      ) : (
-        <p className="lead">
-          {couple ? 'Both wills are ready.' : 'Your will is ready.'} Read {couple ? 'them' : 'it'} carefully, then print and follow the signing steps below.
-        </p>
-      )}
-      <IssueList issues={issuesA} goTo={goTo} title={couple ? `${nameA}’s will` : undefined} />
-      <IssueList issues={issuesB} goTo={goTo} title={`${nameB}’s will`} />
+      <p className="lead">
+        {errors.length > 0
+          ? 'A few things still need to be filled in before these are ready to sign.'
+          : 'Everything is ready. Read each document carefully, then print it and follow the signing steps.'}
+      </p>
+      <IssueList issues={basics} goTo={goTo} />
+      <IssueList issues={willA} goTo={goTo} title={data.docs.will ? (couple ? `${nameA}’s will` : 'Your will') : undefined} />
+      <IssueList issues={willB} goTo={goTo} title={`${nameB}’s will`} />
+      <IssueList issues={dirIssues} goTo={goTo} title="Medical directive" />
       <IssueList issues={assetIssues} goTo={goTo} title="Accounts with a named beneficiary" />
-      <ul className="issues">
-        <li className="issue info">
-          <span className="issue-icon" aria-hidden>i</span>
-          <span>
-            A will doesn’t control life insurance, retirement accounts, or accounts with a named beneficiary. Those go to
-            whoever is named on the account.
-            {!assets && (
-              <>
-                {' '}
-                <button type="button" className="link" onClick={() => goTo('assets')}>
-                  Make an asset list
-                </button>
-              </>
-            )}
-          </span>
-        </li>
-      </ul>
+      {data.docs.will && (
+        <ul className="issues">
+          <li className="issue info">
+            <span className="issue-icon" aria-hidden>i</span>
+            <span>
+              A will doesn’t control life insurance, retirement accounts, or accounts with a named beneficiary. Those go to
+              whoever is named on the account.
+              {!data.docs.assets && (
+                <>
+                  {' '}
+                  <button type="button" className="link" onClick={() => setData({ ...data, docs: { ...data.docs, assets: true } })}>
+                    Add an asset list
+                  </button>
+                </>
+              )}
+            </span>
+          </li>
+        </ul>
+      )}
 
       <div className="actions no-print">
-        <button type="button" className="primary" onClick={() => printPart('will-a')}>
-          Print {couple ? `${nameA}’s will` : 'will'}
-        </button>
-        {couple && (
-          <button type="button" className="primary" onClick={() => printPart('will-b')}>
-            Print {nameB}’s will
-          </button>
-        )}
         <button type="button" className="secondary" onClick={() => printPart('checklist')}>
           Print signing steps
         </button>
@@ -122,66 +194,107 @@ function ReviewStep({ data, setData, goTo }: { data: WillData; setData: (d: Will
       </div>
 
       <section className="checklist card print-doc">
-        <h3>How to sign your will in {rules.name}</h3>
-        <p className="field-hint">A will isn’t valid until it’s signed the right way. {rules.witnessAgeNote}</p>
-        <ol>
-          {couple && (
-            <li>
-              You can both sign at the same sitting with the same witnesses and notary. Each will needs its own full set of
-              signatures: {nameA} signs {nameA}’s will, {nameB} signs {nameB}’s, and the witnesses (and notary) sign both.
-              Don’t sign each other’s will by mistake.
-            </li>
-          )}
-          {rules.checklist.map((c) => (
-            <li key={c}>{c}</li>
-          ))}
-          {assets && <li>Keep the asset list with the will, but don’t staple it to the will. It isn’t part of the will.</li>}
-        </ol>
+        {data.docs.will && (
+          <>
+            <h3>How to sign your will in {rules.name}</h3>
+            <p className="field-hint">A will isn’t valid until it’s signed the right way. {rules.witnessAgeNote}</p>
+            <ol>
+              {couple && (
+                <li>
+                  You can both sign at the same sitting with the same witnesses and notary. Each will needs its own full set of
+                  signatures: {nameA} signs {nameA}’s will, {nameB} signs {nameB}’s, and the witnesses (and notary) sign both.
+                  Don’t sign each other’s will by mistake.
+                </li>
+              )}
+              {rules.checklist.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+              {assets && <li>Keep the asset list with the will, but don’t staple it to the will. It isn’t part of the will.</li>}
+            </ol>
+          </>
+        )}
+        {data.docs.directive && (
+          <>
+            <h3>How to sign your medical directive in {rules.name}</h3>
+            <ol>
+              {DIRECTIVE_SIGNING[st].map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ol>
+            {[
+              { who: couple ? nameA : 'You', dir: data.directive },
+              ...(couple ? [{ who: nameB, dir: data.spouseDirective }] : []),
+            ].map(({ who, dir }) => {
+              const items = initialsGuide(st, dir);
+              return (
+                <div key={who} className="initials-guide">
+                  <h4>{who === 'You' ? 'Initial these items' : `${who}: initial these items`}</h4>
+                  {items.length ? (
+                    <ul>
+                      {items.map((t) => (
+                        <li key={t}>☐ {t}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="field-hint">No choices made yet. Leave every initial line blank, or go back and make your choices.</p>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
       </section>
 
-      <details className="card no-print lawyer-notes">
-        <summary>Notes for your lawyer ({rules.name})</summary>
-        <p className="field-hint">These are the points to check before anyone relies on this will. Citations are starting points; verify each one.</p>
-        <dl>
-          {rules.reviewNotes.map((n) => (
-            <div key={n.topic}>
-              <dt>{n.topic}</dt>
-              <dd>{n.note}</dd>
-            </div>
-          ))}
-          {couple && (
-            <div>
-              <dt>Couples mode</dt>
-              <dd>
-                The second will is generated by swapping the spouses (storage.ts → mirrorForSpouse). Executor, guardian and
-                residue plan carry over; each spouse has separate specific gifts. Stepchildren are labeled from each spouse’s
-                point of view and are excluded from “my children.”
-              </dd>
-            </div>
-          )}
-        </dl>
-      </details>
+      {data.docs.will && (
+        <details className="card no-print lawyer-notes">
+          <summary>Notes for your lawyer ({rules.name})</summary>
+          <p className="field-hint">Each point checked against the statute text (November 2026). “Verified” means the app’s wording matches the statute; the rest are judgment calls.</p>
+          <dl>
+            {rules.reviewNotes.map((n) => (
+              <div key={n.topic}>
+                <dt>{n.topic}</dt>
+                <dd>{n.note}</dd>
+              </div>
+            ))}
+            {couple && (
+              <div>
+                <dt>Couples mode</dt>
+                <dd>
+                  The second will is generated by swapping the spouses (storage.ts → mirrorForSpouse). Executor, guardian and
+                  residue plan carry over; each spouse has separate specific gifts. Stepchildren are labeled from each spouse’s
+                  point of view and are excluded from “my children.”
+                </dd>
+              </div>
+            )}
+          </dl>
+        </details>
+      )}
 
-      <div className="doc-header no-print">
-        <h3>{couple ? 'The wills' : 'Your will'}</h3>
-        {couple && (
-          <div className="tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={shown === 'a'} className={`tab ${shown === 'a' ? 'active' : ''}`} onClick={() => setTab('a')}>
-              {nameA}’s will
-            </button>
-            <button type="button" role="tab" aria-selected={shown === 'b'} className={`tab ${shown === 'b' ? 'active' : ''}`} onClick={() => setTab('b')}>
-              {nameB}’s will
-            </button>
-          </div>
-        )}
-      </div>
-      <div className={`paper-wrap print-doc print-will-a ${shown === 'a' ? '' : 'screen-hidden'}`}>
-        <WillDocument data={data} draft={issuesA.some((i) => i.level === 'error')} />
-      </div>
-      {spouseWill && (
-        <div className={`paper-wrap print-doc print-will-b ${shown === 'b' ? '' : 'screen-hidden'}`}>
-          <WillDocument data={spouseWill} draft={checkWill(spouseWill).some((i) => i.level === 'error')} />
-        </div>
+      {data.docs.will && (
+        <DocSection
+          title="Will"
+          couple={couple}
+          nameA={nameA}
+          nameB={nameB}
+          partA="will-a"
+          partB="will-b"
+          className=""
+          renderA={() => <WillDocument data={data} draft={willA.some((i) => i.level === 'error') || basics.some((i) => i.level === 'error')} />}
+          renderB={() => (spouse ? <WillDocument data={spouse} draft={checkWill(spouse).some((i) => i.level === 'error')} /> : null)}
+        />
+      )}
+      {data.docs.directive && (
+        <DocSection
+          title="Medical directive"
+          couple={couple}
+          nameA={nameA}
+          nameB={nameB}
+          partA="dir-a"
+          partB="dir-b"
+          className=""
+          renderA={() => <DirectiveDocument state={data.state} name={data.name} dir={data.directive} />}
+          renderB={() => <DirectiveDocument state={data.state} name={data.spouseName} dir={data.spouseDirective} />}
+        />
       )}
       {assets && (
         <div className="print-doc print-assets screen-hidden">
@@ -250,15 +363,18 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [hasAnswers]);
 
+  const steps = STEPS.filter((s) => !s.show || s.show(data));
   const goTo = (s: StepId) => {
     setStep(s);
     window.scrollTo({ top: 0 });
   };
   const set = (patch: Partial<WillData>) => setData((d) => ({ ...d, ...patch }));
-  const idx = STEPS.findIndex((s) => s.id === step);
-  const current = STEPS[idx];
-  const issues = [...checkWill(data), ...(isCouple(data) ? checkWill(mirrorForSpouse(data)) : [])];
-  const stepHasError = (id: StepId) => issues.some((i) => i.step === id && i.level === 'error');
+  // If the current step was hidden (document unchecked), fall back to the start.
+  const idx = Math.max(0, steps.findIndex((s) => s.id === step));
+  const current = steps[idx];
+  const { all } = allIssues(data);
+  const stepHasError = (id: StepId) => all.some((i) => i.step === id && i.level === 'error');
+  const canContinue = !(current.id === 'start' && (!data.state || !Object.values(data.docs).some(Boolean)));
 
   return (
     <div className="app">
@@ -274,9 +390,9 @@ export default function App() {
       <div className="layout">
         <nav className="steps no-print" aria-label="Steps">
           <ol>
-            {STEPS.map((s, i) => (
+            {steps.map((s, i) => (
               <li key={s.id}>
-                <button type="button" className={`step ${s.id === step ? 'active' : ''} ${i < idx ? 'done' : ''}`} onClick={() => goTo(s.id)}>
+                <button type="button" className={`step ${s.id === current.id ? 'active' : ''} ${i < idx ? 'done' : ''}`} onClick={() => goTo(s.id)}>
                   <span className="step-num">{i + 1}</span>
                   {s.label}
                   {i < idx && stepHasError(s.id) && <span className="step-flag" title="Needs attention">!</span>}
@@ -285,16 +401,16 @@ export default function App() {
             ))}
           </ol>
         </nav>
-        <main className={step === 'review' ? 'wide' : ''}>
+        <main className={current.id === 'review' ? 'wide' : ''}>
           {current.Component ? <current.Component data={data} set={set} /> : <ReviewStep data={data} setData={setData} goTo={goTo} />}
           <div className="nav-buttons no-print">
             {idx > 0 && (
-              <button type="button" className="secondary" onClick={() => goTo(STEPS[idx - 1].id)}>
+              <button type="button" className="secondary" onClick={() => goTo(steps[idx - 1].id)}>
                 ← Back
               </button>
             )}
-            {idx < STEPS.length - 1 && (
-              <button type="button" className="primary" disabled={step === 'start' && !data.state} onClick={() => goTo(STEPS[idx + 1].id)}>
+            {idx < steps.length - 1 && (
+              <button type="button" className="primary" disabled={!canContinue} onClick={() => goTo(steps[idx + 1].id)}>
                 Next →
               </button>
             )}
